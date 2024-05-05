@@ -1,23 +1,24 @@
 package org.bits.assignment.service.impl;
 
+
+import com.mongodb.client.result.UpdateResult;
 import lombok.extern.slf4j.Slf4j;
-import org.bits.assignment.entity.CriticsEntity;
+import org.bits.assignment.entity.AnimeEntity;
 import org.bits.assignment.model.CriticsSearchRequest;
 import org.bits.assignment.model.CriticsSearchResponse;
+import org.bits.assignment.model.MutationResponse;
 import org.bits.assignment.repositories.CriticsRepository;
 import org.bits.assignment.service.CriticsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.StringJoiner;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static java.util.Objects.nonNull;
@@ -40,7 +41,7 @@ public class CriticsServiceImpl implements CriticsService {
 
             Query query = QueryBuilder(criticsSearchRequest);
             log.info(query.toString());
-            List<CriticsEntity> animeSearch = mongoTemplate.find(query, CriticsEntity.class);
+            List<AnimeEntity> animeSearch = mongoTemplate.find(query, AnimeEntity.class);
             criticsSearchRespons = animeSearch.stream().map(
                     anime ->
                         CriticsSearchResponse.builder()
@@ -48,21 +49,7 @@ public class CriticsServiceImpl implements CriticsService {
                                 .respMsg("Success")
                                 .title(anime.getTitle())
                                 .description(anime.getDescription())
-                                .mediaType(anime.getMediaType())
-                                .tags(anime.getTags())
-                                .startYr(anime.getStartYr())
-                                .sznOfRelease(anime.getSznOfRelease())
-                                .eps(anime.getEps())
-                                .contentWarn(anime.getContentWarn())
-                                .ongoing(anime.getOngoing())
-                                .finishYr(anime.getFinishYr())
-                                .studios(anime.getStudios())
-                                .watched(anime.getWatched())
-                                .watching(anime.getWatching())
-                                .wantWatch(anime.getWantWatch())
-                                .dropped(anime.getDropped())
-                                .rating(anime.getRating())
-                                .votes(anime.getVotes())
+                                .critics_reviews(anime.getCritics_reviews())
                                 .build()
                     ).collect(Collectors.toList());
 
@@ -76,35 +63,135 @@ public class CriticsServiceImpl implements CriticsService {
         return criticsSearchRespons;
     }
 
+    @Override
+    public MutationResponse addOrUpdate(CriticsSearchRequest criticsSearchRequest) {
+
+        try{
+            UpdateResult result;
+            AnimeEntity newReviews = new AnimeEntity();
+            newReviews.set_id(criticsSearchRequest.getTitle());
+            newReviews.setTitle(criticsSearchRequest.getTitle());
+            newReviews.setDescription(criticsSearchRequest.getDescription());
+            newReviews.setCritics_reviews(criticsSearchRequest.getCritics_reviews());
+
+            String criticName = (
+                    !criticsSearchRequest.getCritics_reviews().isEmpty() &&
+                    nonNull(criticsSearchRequest.getCritics_reviews().get(0).getCritic_name())
+            )? criticsSearchRequest.getCritics_reviews().get(0).getCritic_name() : "";
+
+            String criticReviews = (
+                    !criticsSearchRequest.getCritics_reviews().isEmpty() &&
+                            nonNull(criticsSearchRequest.getCritics_reviews().get(0).getCritics_review())
+            )? criticsSearchRequest.getCritics_reviews().get(0).getCritics_review() : "";
+
+            String criticRatings = (
+                    !criticsSearchRequest.getCritics_reviews().isEmpty() &&
+                            nonNull(criticsSearchRequest.getCritics_reviews().get(0).getRatings())
+            )? criticsSearchRequest.getCritics_reviews().get(0).getRatings() : "";
+
+
+            Query ExistingReviews = new Query();
+            ExistingReviews.addCriteria(Criteria.where("title").is(newReviews.getTitle()));
+            ExistingReviews.addCriteria(Criteria.where("critics_reviews.critic_name").is(criticName));
+
+            if(!mongoTemplate.find(ExistingReviews, AnimeEntity.class).isEmpty()){
+                Update updExRev = new Update().set("critics_reviews.$.critic_name",criticName);
+                updExRev.set("critics_reviews.$.critics_review",criticReviews);
+                updExRev.set("critics_reviews.$.ratings",criticRatings);
+                result = mongoTemplate.updateFirst(ExistingReviews, updExRev, AnimeEntity.class);
+                log.info("found a matching document - updating existing");
+            }else{
+                Query query = new Query().addCriteria(Criteria.where("title").is(newReviews.getTitle()));
+                Update updateValue = new Update().push("critics_reviews").each(newReviews.getCritics_reviews());
+                result = mongoTemplate.upsert(query,updateValue, AnimeEntity.class);
+                log.info("no matching records found - inserting new Reviews");
+            }
+
+            log.info(result.toString());
+
+            return MutationResponse.builder()
+                    .status(HttpStatus.OK)
+                    .respMsg("Updated Successfully")
+                    .modifiedCount(String.valueOf(result.getModifiedCount()))
+                    .upsertId(String.valueOf(result.getUpsertedId()))
+                    .build();
+
+        }catch(Exception ex){
+            log.error(ex.getMessage());
+            return MutationResponse.builder()
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .respMsg(ex.getMessage())
+                    .build();
+        }
+    }
+
+
+    public MutationResponse deleteRecord(CriticsSearchRequest criticsSearchRequest) {
+
+        try{
+            UpdateResult result;
+            AnimeEntity newReviews = new AnimeEntity();
+            newReviews.set_id(criticsSearchRequest.getTitle());
+            newReviews.setTitle(criticsSearchRequest.getTitle());
+            newReviews.setDescription(criticsSearchRequest.getDescription());
+            newReviews.setCritics_reviews(criticsSearchRequest.getCritics_reviews());
+
+            String criticName = (
+                    !criticsSearchRequest.getCritics_reviews().isEmpty() &&
+                            nonNull(criticsSearchRequest.getCritics_reviews().get(0).getCritic_name())
+            )? criticsSearchRequest.getCritics_reviews().get(0).getCritic_name() : "";
+
+
+            Query recordToMatch = new Query();
+            recordToMatch.addCriteria(Criteria.where("title").is(newReviews.getTitle()));
+
+            Query recordToRemove = new Query();
+            recordToRemove.addCriteria(Criteria.where("critic_name").is(criticName));
+
+            Update docRemoval = new Update().pull("critics_reviews", recordToRemove);
+            result = mongoTemplate.updateFirst(recordToMatch, docRemoval,"anime_critics_db");
+
+            log.info("Doc Removal is completed");
+
+            log.info(result.toString());
+
+            if(result.getModifiedCount()==0){
+                return MutationResponse.builder()
+                        .status(HttpStatus.NOT_FOUND)
+                        .respMsg("No Matching records where found to delete")
+                        .modifiedCount(String.valueOf(result.getModifiedCount()))
+                        .upsertId(String.valueOf(result.getUpsertedId()))
+                        .build();
+            }
+
+            return MutationResponse.builder()
+                    .status(HttpStatus.OK)
+                    .respMsg("Deleted Successfully")
+                    .modifiedCount(String.valueOf(result.getModifiedCount()))
+                    .upsertId(String.valueOf(result.getUpsertedId()))
+                    .build();
+
+        }catch(Exception ex){
+            log.error(ex.getMessage());
+            ex.printStackTrace();
+            return MutationResponse.builder()
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .respMsg(ex.getMessage())
+                    .build();
+        }
+    }
+
+
+
     private Query QueryBuilder(CriticsSearchRequest criticsSearchRequest) {
         Query query = new Query();
-        if(
-                criticsSearchRequest.getPageSzie() != 0
-                        && criticsSearchRequest.getPageNbr() != 0
-        ){
-            int skip = (criticsSearchRequest.getPageNbr() - 1) * criticsSearchRequest.getPageSzie();
-            query.skip(skip).limit(criticsSearchRequest.getPageSzie());
-        }else{
-            query.skip(0).limit(50);
-        }
-        if (nonNull(criticsSearchRequest.getTags()) && !criticsSearchRequest.getTags().isEmpty()) {
-            StringJoiner valueToSearch = new StringJoiner("|");
-            criticsSearchRequest.getTags().forEach(valueToSearch::add);
-            log.info(valueToSearch.toString());
-            Pattern regExSearch = Pattern.compile(valueToSearch.toString(), Pattern.CASE_INSENSITIVE);
-            query.addCriteria(Criteria.where("tags").regex(regExSearch));
-        }
-
-        if (nonNull(criticsSearchRequest.getTitle()) && StringUtils.hasLength(criticsSearchRequest.getTitle())) {
+        if (nonNull(criticsSearchRequest.getTitle())) {
             query.addCriteria(Criteria.where("title").regex(criticsSearchRequest.getTitle()));
-        }
-
-        if (nonNull(criticsSearchRequest.getDescription()) && StringUtils.hasLength(criticsSearchRequest.getDescription())) {
-            query.addCriteria(Criteria.where("description").regex(criticsSearchRequest.getDescription()));
         }
 
         query.fields().exclude("_id");
         return query;
     }
+
 
 }

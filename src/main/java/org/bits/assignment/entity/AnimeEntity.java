@@ -12,33 +12,18 @@ import java.util.List;
 
 @Sharded(shardKey = {"id"})
 @Accessors(chain = true)
-@Getter
-@Setter
+@Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
 @Document(collection = "anime_critics_db")
-public class CriticsEntity {
+public class AnimeEntity {
 
     @Id
     @Indexed(unique = true)
     private String _id;
     private String title;
     private String description;
-    private String mediaType;
-    private List<String> tags;
-    private String startYr;
-    private String sznOfRelease;
-    private String eps;
-    private List<String> contentWarn;
-    private Boolean ongoing;
-    private String finishYr;
-    private List<String> studios;
-    private Integer watched;
-    private Integer watching;
-    private Integer wantWatch;
-    private Integer dropped;
-    private Integer rating;
-    private Integer votes;
+    private List<CriticsReviews> critics_reviews;
 
 }

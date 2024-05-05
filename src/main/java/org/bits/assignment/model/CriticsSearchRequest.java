@@ -1,6 +1,7 @@
 package org.bits.assignment.model;
 
 import lombok.Data;
+import org.bits.assignment.entity.CriticsReviews;
 
 import java.util.List;
 
@@ -9,8 +10,6 @@ public class CriticsSearchRequest {
 
     private String _id;
     private String title;
-    private List<String> tags;
     private String description;
-    private int pageSzie;
-    private int pageNbr;
+    private List<CriticsReviews> critics_reviews;
 }

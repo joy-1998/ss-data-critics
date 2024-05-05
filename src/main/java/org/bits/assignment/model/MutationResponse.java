@@ -15,12 +15,11 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class CriticsSearchResponse {
+public class MutationResponse {
 
     public HttpStatus status;
     public String respMsg;
-    private String title;
-    private String description;
-    private List<CriticsReviews> critics_reviews;
+    public String modifiedCount;
+    public String upsertId;
 
 }
