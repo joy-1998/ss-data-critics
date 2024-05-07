@@ -9,6 +9,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
+import java.util.Collections;
 
 @EnableWebSecurity
 public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
@@ -29,6 +30,7 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
         configuration.setAllowedMethods(ImmutableList.of("GET", "POST", "PUT", "OPTIONS", "DELETE"));
         configuration.setMaxAge(3600L);
         configuration.setAllowCredentials(true);
+        configuration.setAllowedOriginPatterns(Collections.singletonList("*"));
         final UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
 

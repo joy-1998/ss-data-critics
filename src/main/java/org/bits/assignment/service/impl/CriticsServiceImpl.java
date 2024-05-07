@@ -14,6 +14,7 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
+import org.springframework.data.mongodb.core.query.UpdateDefinition;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -102,9 +103,19 @@ public class CriticsServiceImpl implements CriticsService {
                 log.info("found a matching document - updating existing");
             }else{
                 Query query = new Query().addCriteria(Criteria.where("title").is(newReviews.getTitle()));
-                Update updateValue = new Update().push("critics_reviews").each(newReviews.getCritics_reviews());
-                result = mongoTemplate.upsert(query,updateValue, AnimeEntity.class);
-                log.info("no matching records found - inserting new Reviews");
+                if(!mongoTemplate.find(query, AnimeEntity.class).isEmpty()){
+                    Update updateValue = new Update().push("critics_reviews").each(newReviews.getCritics_reviews());
+                    result = mongoTemplate.upsert(query,updateValue, AnimeEntity.class);
+                    log.info("no matching records found - inserting new Reviews");
+                }else{
+                    log.info("code block here");
+                    Update newValue = new Update()
+                            .set("_id",newReviews.getTitle())
+                            .set("title", newReviews.getTitle())
+                            .set("description", newReviews.getDescription())
+                            .set("critics_reviews",newReviews.getCritics_reviews());
+                    result = mongoTemplate.upsert(query, newValue, AnimeEntity.class);
+                }
             }
 
             log.info(result.toString());
